@@ -9,3 +9,10 @@
 ## 실행
 `index.html`을 브라우저로 열면 됩니다. 또는 `python3 -m http.server` 후 http://localhost:8000
 GitHub Pages로 배포하면 휴대폰에서도 바로 열 수 있습니다.
+
+## 앱처럼 설치하기 (PWA)
+GitHub Pages로 배포한 주소를 휴대폰 브라우저로 연 뒤
+- 아이폰(Safari): 공유 버튼 → "홈 화면에 추가"
+- 안드로이드(Chrome): 메뉴 → "앱 설치" 또는 "홈 화면에 추가"
+
+한 번 열면 오프라인에서도 열립니다.
