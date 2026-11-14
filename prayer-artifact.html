@@ -34,6 +34,17 @@ body.evening #editor .row .primary{color:#1c2438}
 .hint{color:var(--muted);margin:4px 0;font-size:.85em}
 .tools #edit{margin-right:auto}
 
+#sermon{background:var(--card);border-radius:16px;padding:16px 20px;margin-bottom:16px;font-size:.85em}
+#sermon[hidden]{display:none}
+#sermon label{display:block;margin:10px 0 4px;color:var(--accent)}
+#sermon textarea,#sermon input{width:100%;font:inherit;font-size:1em;line-height:1.7;padding:10px;border-radius:10px;border:1px solid var(--muted);background:transparent;color:var(--fg)}
+#sermon .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#sermon .row button{font:inherit;padding:8px 14px;border-radius:10px;border:1px solid var(--muted);background:transparent;color:var(--fg);cursor:pointer}
+#sermon .row .primary{background:var(--accent);border-color:var(--accent);color:#fff}
+#sermon .row button:disabled{opacity:.5}
+#sermon summary{cursor:pointer;color:var(--muted);margin-top:12px}
+.tabs button{font-size:.85em}
+
 </style>
 
   <main>
@@ -46,6 +57,7 @@ body.evening #editor .row .primary{color:#1c2438}
     <nav class="tabs" role="tablist" aria-label="기도 선택">
       <button role="tab" data-mode="morning" id="tab-morning">☀️ 아침</button>
       <button role="tab" data-mode="evening" id="tab-evening">🌙 저녁</button>
+      <button role="tab" data-mode="sunday" id="tab-sunday">🙏 예배</button>
     </nav>
 
     <div class="tools">
@@ -66,6 +78,26 @@ body.evening #editor .row .primary{color:#1c2438}
         <button type="button" id="ed-reset">처음 기도문으로</button>
       </div>
       <p class="hint">이 기기의 브라우저에만 저장돼요.</p>
+    </form>
+
+    <form id="sermon" hidden>
+      <p class="hint">이번 주 설교 말씀 필기를 적으면, 그 내용에 맞는 묵상 기도문을 AI가 만들어 줘요.</p>
+      <label for="sm-title">설교 제목·본문 (선택)</label>
+      <input id="sm-title" type="text" placeholder="예) 믿음의 길 · 히브리서 11:1-6">
+      <label for="sm-notes">설교 필기</label>
+      <textarea id="sm-notes" rows="10" placeholder="들은 말씀, 마음에 남은 구절, 적용할 점을 자유롭게 적어요."></textarea>
+      <div class="row">
+        <button type="submit" class="primary" id="sm-go">묵상 기도문 만들기</button>
+        <button type="button" id="sm-clear">지우기</button>
+      </div>
+      <p id="sm-status" class="hint" role="status"></p>
+      <details id="sm-settings">
+        <summary>AI 연결 설정 (처음 한 번)</summary>
+        <p class="hint">Anthropic API 키가 필요해요. 키는 이 기기의 브라우저에만 저장되고, 설교 필기는 기도문을 만들 때 Anthropic으로 전송돼요.</p>
+        <label for="sm-key">API 키</label>
+        <input id="sm-key" type="password" autocomplete="off" placeholder="sk-ant-...">
+        <div class="row"><button type="button" id="sm-keysave">키 저장</button><button type="button" id="sm-keydel">키 삭제</button></div>
+      </details>
     </form>
 
     <article id="prayer" aria-live="polite"></article>
@@ -179,6 +211,7 @@ window.PRAYERS = {
     return (h >= 5 && h < 15) ? "morning" : "evening"; // 5시~15시 아침, 그 외 저녁
   }
 
+  window.PRAYERS.sunday = { label: "예배 묵상 기도", greeting: "이번 주 말씀을 따라 드리는 기도", items: [], closing: "" };
   var DEFAULTS = JSON.parse(JSON.stringify(window.PRAYERS));
   var current = "morning";
 
@@ -215,9 +248,12 @@ window.PRAYERS = {
   function render(mode) {
     current = mode;
     $("editor").hidden = true;
+    $("sermon").hidden = mode !== "sunday";
+    $("edit").hidden = mode === "sunday";
+    if (mode === "sunday") loadWeek();
     var p = window.PRAYERS[mode];
-    document.body.className = mode;
-    $("icon").textContent = mode === "morning" ? "☀️" : "🌙";
+    document.body.className = mode === "evening" ? "evening" : "morning";
+    $("icon").textContent = mode === "morning" ? "☀️" : mode === "evening" ? "🌙" : "🙏";
     $("title").textContent = p.label;
     $("greeting").textContent = p.greeting;
     $("closing").textContent = p.closing;
@@ -235,7 +271,7 @@ window.PRAYERS = {
       });
       box.appendChild(s);
     });
-    ["morning", "evening"].forEach(function (m) {
+    ["morning", "evening", "sunday"].forEach(function (m) {
       $("tab-" + m).setAttribute("aria-selected", m === mode ? "true" : "false");
     });
     
@@ -268,6 +304,80 @@ window.PRAYERS = {
     window.PRAYERS[current].closing = $("ed-closing").value.trim();
     saveCustom();
     render(current);
+  });
+
+  // ---- 예배 묵상 기도 (AI) ----
+  function weekKey() {
+    var d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return "sermon:" + d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  }
+  function loadWeek() {
+    var raw = store.get(weekKey()), w = null;
+    try { w = raw ? JSON.parse(raw) : null; } catch (e) {}
+    $("sm-title").value = w ? w.title || "" : "";
+    $("sm-notes").value = w ? w.notes || "" : "";
+    window.PRAYERS.sunday.items = w ? w.items || [] : [];
+    window.PRAYERS.sunday.closing = w ? w.closing || "" : "";
+    $("sm-status").textContent = w && w.items && w.items.length ? "이번 주에 만든 기도문이에요." : "";
+    $("sm-settings").open = !store.get("apiKey");
+    $("sm-key").value = "";
+  }
+  $("sm-keysave").addEventListener("click", function () {
+    var k = $("sm-key").value.trim();
+    if (!k) return;
+    store.set("apiKey", k); $("sm-key").value = ""; $("sm-settings").open = false;
+    $("sm-status").textContent = "키를 저장했어요.";
+  });
+  $("sm-keydel").addEventListener("click", function () {
+    try { localStorage.removeItem("apiKey"); } catch (e) {}
+    $("sm-status").textContent = "키를 삭제했어요.";
+  });
+  $("sm-clear").addEventListener("click", function () {
+    try { localStorage.removeItem(weekKey()); } catch (e) {}
+    loadWeek(); render("sunday");
+  });
+  var PROMPT = "당신은 교회 예배 후 묵상을 돕는 기도 동반자입니다. 아래 설교 필기를 바탕으로 한국어 묵상 기도문을 써 주세요.\n" +
+    "규칙:\n- 필기에 없는 성경 구절이나 사실을 지어내지 말고, 필기의 내용과 본문에 충실하세요.\n" +
+    "- 따뜻하고 경건한 1인칭 기도체(\"~하소서\", \"~합니다\")로 쓰세요.\n" +
+    "- 4~5개 단락으로 나누고, 각 단락은 '제목 한 줄' 다음에 2~4줄의 기도 내용을 쓰세요. 단락 사이는 빈 줄 하나로 구분하세요.\n" +
+    "- 흐름: 말씀에 대한 감사 → 말씀 속에서 마음에 새긴 것 → 회개와 결단 → 이번 주 삶의 적용 → 이웃·교회를 위한 기도.\n" +
+    "- 마지막에 빈 줄 후 '마무리: '로 시작하는 한 줄(예수님의 이름으로 드리는 문장)을 쓰세요.\n" +
+    "- 마크다운 기호(#, *, - 등)와 설명은 쓰지 말고 기도문 본문만 출력하세요.";
+  $("sermon").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var notes = $("sm-notes").value.trim(), title = $("sm-title").value.trim(), key = store.get("apiKey");
+    var st = $("sm-status"), btn = $("sm-go");
+    if (!notes) { st.textContent = "설교 필기를 먼저 적어 주세요."; return; }
+    if (!key) { st.textContent = "아래 'AI 연결 설정'에서 API 키를 먼저 저장해 주세요."; $("sm-settings").open = true; return; }
+    btn.disabled = true; st.textContent = "기도문을 만드는 중이에요… (10~30초)";
+    fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json", "x-api-key": key,
+        "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-5-5", max_tokens: 1800, system: PROMPT,
+        messages: [{ role: "user", content: (title ? "설교 제목·본문: " + title + "\n\n" : "") + "설교 필기:\n" + notes }]
+      })
+    }).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok) throw new Error(r.status === 401 ? "API 키가 올바르지 않아요." : (j && j.error && j.error.message) || ("오류 " + r.status));
+        return j;
+      });
+    }).then(function (j) {
+      var text = (j.content || []).map(function (b) { return b.text || ""; }).join("").trim();
+      var closing = "", m = text.match(/\n?\s*마무리:\s*([^\n]+)\s*$/);
+      if (m) { closing = m[1].trim(); text = text.slice(0, m.index).trim(); }
+      var items = parseText(text);
+      if (!items.length) throw new Error("기도문을 받지 못했어요. 다시 시도해 주세요.");
+      store.set(weekKey(), JSON.stringify({ title: title, notes: notes, items: items, closing: closing }));
+      window.PRAYERS.sunday.items = items; window.PRAYERS.sunday.closing = closing;
+      render("sunday");
+      $("sm-status").textContent = "기도문을 만들었어요. 아래에서 읽어 보세요.";
+    }).catch(function (err) {
+      st.textContent = "만들지 못했어요: " + (err && err.message ? err.message : "네트워크를 확인해 주세요.");
+    }).then(function () { btn.disabled = false; });
   });
 
   var fs = parseInt(store.get("fs"), 10) || 19;

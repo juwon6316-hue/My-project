@@ -30,3 +30,14 @@ section p{margin:.2em 0}
 body.evening #editor .row .primary{color:#1c2438}
 .hint{color:var(--muted);margin:4px 0;font-size:.85em}
 .tools #edit{margin-right:auto}
+
+#sermon{background:var(--card);border-radius:16px;padding:16px 20px;margin-bottom:16px;font-size:.85em}
+#sermon[hidden]{display:none}
+#sermon label{display:block;margin:10px 0 4px;color:var(--accent)}
+#sermon textarea,#sermon input{width:100%;font:inherit;font-size:1em;line-height:1.7;padding:10px;border-radius:10px;border:1px solid var(--muted);background:transparent;color:var(--fg)}
+#sermon .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#sermon .row button{font:inherit;padding:8px 14px;border-radius:10px;border:1px solid var(--muted);background:transparent;color:var(--fg);cursor:pointer}
+#sermon .row .primary{background:var(--accent);border-color:var(--accent);color:#fff}
+#sermon .row button:disabled{opacity:.5}
+#sermon summary{cursor:pointer;color:var(--muted);margin-top:12px}
+.tabs button{font-size:.85em}

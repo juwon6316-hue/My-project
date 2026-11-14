@@ -23,6 +23,7 @@
     <nav class="tabs" role="tablist" aria-label="기도 선택">
       <button role="tab" data-mode="morning" id="tab-morning">☀️ 아침</button>
       <button role="tab" data-mode="evening" id="tab-evening">🌙 저녁</button>
+      <button role="tab" data-mode="sunday" id="tab-sunday">🙏 예배</button>
     </nav>
 
     <div class="tools">
@@ -43,6 +44,26 @@
         <button type="button" id="ed-reset">처음 기도문으로</button>
       </div>
       <p class="hint">이 기기의 브라우저에만 저장돼요.</p>
+    </form>
+
+    <form id="sermon" hidden>
+      <p class="hint">이번 주 설교 말씀 필기를 적으면, 그 내용에 맞는 묵상 기도문을 AI가 만들어 줘요.</p>
+      <label for="sm-title">설교 제목·본문 (선택)</label>
+      <input id="sm-title" type="text" placeholder="예) 믿음의 길 · 히브리서 11:1-6">
+      <label for="sm-notes">설교 필기</label>
+      <textarea id="sm-notes" rows="10" placeholder="들은 말씀, 마음에 남은 구절, 적용할 점을 자유롭게 적어요."></textarea>
+      <div class="row">
+        <button type="submit" class="primary" id="sm-go">묵상 기도문 만들기</button>
+        <button type="button" id="sm-clear">지우기</button>
+      </div>
+      <p id="sm-status" class="hint" role="status"></p>
+      <details id="sm-settings">
+        <summary>AI 연결 설정 (처음 한 번)</summary>
+        <p class="hint">Anthropic API 키가 필요해요. 키는 이 기기의 브라우저에만 저장되고, 설교 필기는 기도문을 만들 때 Anthropic으로 전송돼요.</p>
+        <label for="sm-key">API 키</label>
+        <input id="sm-key" type="password" autocomplete="off" placeholder="sk-ant-...">
+        <div class="row"><button type="button" id="sm-keysave">키 저장</button><button type="button" id="sm-keydel">키 삭제</button></div>
+      </details>
     </form>
 
     <article id="prayer" aria-live="polite"></article>
