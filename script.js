@@ -118,17 +118,17 @@
     window.PRAYERS.sunday.items = w ? w.items || [] : [];
     window.PRAYERS.sunday.closing = w ? w.closing || "" : "";
     $("sm-status").textContent = w && w.items && w.items.length ? "이번 주에 만든 기도문이에요." : "";
-    $("sm-settings").open = !store.get("apiKey");
+    $("sm-settings").open = !store.get("geminiKey");
     $("sm-key").value = "";
   }
   $("sm-keysave").addEventListener("click", function () {
     var k = $("sm-key").value.trim();
     if (!k) return;
-    store.set("apiKey", k); $("sm-key").value = ""; $("sm-settings").open = false;
+    store.set("geminiKey", k); $("sm-key").value = ""; $("sm-settings").open = false;
     $("sm-status").textContent = "키를 저장했어요.";
   });
   $("sm-keydel").addEventListener("click", function () {
-    try { localStorage.removeItem("apiKey"); } catch (e) {}
+    try { localStorage.removeItem("geminiKey"); } catch (e) {}
     $("sm-status").textContent = "키를 삭제했어요.";
   });
   $("sm-clear").addEventListener("click", function () {
@@ -144,28 +144,32 @@
     "- 마크다운 기호(#, *, - 등)와 설명은 쓰지 말고 기도문 본문만 출력하세요.";
   $("sermon").addEventListener("submit", function (e) {
     e.preventDefault();
-    var notes = $("sm-notes").value.trim(), title = $("sm-title").value.trim(), key = store.get("apiKey");
+    var notes = $("sm-notes").value.trim(), title = $("sm-title").value.trim(), key = store.get("geminiKey");
     var st = $("sm-status"), btn = $("sm-go");
     if (!notes) { st.textContent = "설교 필기를 먼저 적어 주세요."; return; }
-    if (!key) { st.textContent = "아래 'AI 연결 설정'에서 API 키를 먼저 저장해 주세요."; $("sm-settings").open = true; return; }
+    if (!key) { st.textContent = "아래 'AI 연결 설정'에서 Gemini API 키를 먼저 저장해 주세요."; $("sm-settings").open = true; return; }
     btn.disabled = true; st.textContent = "기도문을 만드는 중이에요… (10~30초)";
-    fetch("https://api.anthropic.com/v1/messages", {
+    fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=" + encodeURIComponent(key), {
       method: "POST",
-      headers: {
-        "content-type": "application/json", "x-api-key": key,
-        "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"
-      },
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        model: "claude-sonnet-5-5", max_tokens: 1800, system: PROMPT,
-        messages: [{ role: "user", content: (title ? "설교 제목·본문: " + title + "\n\n" : "") + "설교 필기:\n" + notes }]
+        systemInstruction: { parts: [{ text: PROMPT }] },
+        contents: [{ role: "user", parts: [{ text: (title ? "설교 제목·본문: " + title + "\n\n" : "") + "설교 필기:\n" + notes }] }],
+        generationConfig: { maxOutputTokens: 2500, temperature: 0.8 }
       })
     }).then(function (r) {
       return r.json().then(function (j) {
-        if (!r.ok) throw new Error(r.status === 401 ? "API 키가 올바르지 않아요." : (j && j.error && j.error.message) || ("오류 " + r.status));
+        if (!r.ok) {
+          var msg = (j && j.error && j.error.message) || ("오류 " + r.status);
+          if (r.status === 400 || r.status === 403) msg = "API 키가 올바르지 않아요. 키를 다시 확인해 주세요.";
+          if (r.status === 429) msg = "오늘 무료 사용량을 다 썼거나 요청이 너무 많아요. 잠시 뒤 다시 시도해 주세요.";
+          throw new Error(msg);
+        }
         return j;
       });
     }).then(function (j) {
-      var text = (j.content || []).map(function (b) { return b.text || ""; }).join("").trim();
+      var parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [];
+      var text = parts.map(function (b) { return b.text || ""; }).join("").trim();
       var closing = "", m = text.match(/\n?\s*마무리:\s*([^\n]+)\s*$/);
       if (m) { closing = m[1].trim(); text = text.slice(0, m.index).trim(); }
       var items = parseText(text);
