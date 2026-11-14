@@ -28,7 +28,22 @@
     <div class="tools">
       <button id="smaller" aria-label="글자 작게">가−</button>
       <button id="larger" aria-label="글자 크게">가+</button>
+      <button id="edit" aria-label="기도문 편집">✏️ 편집</button>
     </div>
+
+    <form id="editor" hidden>
+      <p class="hint">제목 한 줄, 그 아래 기도 내용을 적고, 빈 줄로 단락을 나눠요. (아래 입력칸을 고쳐 쓰면 됩니다)</p>
+      <label for="ed-body" id="ed-label">기도문</label>
+      <textarea id="ed-body" rows="16"></textarea>
+      <label for="ed-closing">마무리 문장</label>
+      <input id="ed-closing" type="text">
+      <div class="row">
+        <button type="submit" class="primary">저장</button>
+        <button type="button" id="ed-cancel">취소</button>
+        <button type="button" id="ed-reset">처음 기도문으로</button>
+      </div>
+      <p class="hint">이 기기의 브라우저에만 저장돼요.</p>
+    </form>
 
     <article id="prayer" aria-live="polite"></article>
     <p id="closing" class="closing"></p>

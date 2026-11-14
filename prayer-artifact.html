@@ -23,6 +23,17 @@ section h2{margin:0 0 6px;font-size:.95em;color:var(--accent)}
 section p{margin:.2em 0}
 .closing{text-align:center;color:var(--accent);margin-top:28px}
 
+#editor{background:var(--card);border-radius:16px;padding:16px 20px;margin-bottom:16px;font-size:.85em}
+#editor[hidden]{display:none}
+#editor label{display:block;margin:10px 0 4px;color:var(--accent)}
+#editor textarea,#editor input{width:100%;font:inherit;font-size:1em;line-height:1.7;padding:10px;border-radius:10px;border:1px solid var(--muted);background:transparent;color:var(--fg)}
+#editor .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#editor .row button{font:inherit;padding:8px 14px;border-radius:10px;border:1px solid var(--muted);background:transparent;color:var(--fg);cursor:pointer}
+#editor .row .primary{background:var(--accent);border-color:var(--accent);color:#fff}
+body.evening #editor .row .primary{color:#1c2438}
+.hint{color:var(--muted);margin:4px 0;font-size:.85em}
+.tools #edit{margin-right:auto}
+
 </style>
 
   <main>
@@ -40,7 +51,22 @@ section p{margin:.2em 0}
     <div class="tools">
       <button id="smaller" aria-label="글자 작게">가−</button>
       <button id="larger" aria-label="글자 크게">가+</button>
+      <button id="edit" aria-label="기도문 편집">✏️ 편집</button>
     </div>
+
+    <form id="editor" hidden>
+      <p class="hint">제목 한 줄, 그 아래 기도 내용을 적고, 빈 줄로 단락을 나눠요. (아래 입력칸을 고쳐 쓰면 됩니다)</p>
+      <label for="ed-body" id="ed-label">기도문</label>
+      <textarea id="ed-body" rows="16"></textarea>
+      <label for="ed-closing">마무리 문장</label>
+      <input id="ed-closing" type="text">
+      <div class="row">
+        <button type="submit" class="primary">저장</button>
+        <button type="button" id="ed-cancel">취소</button>
+        <button type="button" id="ed-reset">처음 기도문으로</button>
+      </div>
+      <p class="hint">이 기기의 브라우저에만 저장돼요.</p>
+    </form>
 
     <article id="prayer" aria-live="polite"></article>
     <p id="closing" class="closing"></p>
@@ -153,7 +179,42 @@ window.PRAYERS = {
     return (h >= 5 && h < 15) ? "morning" : "evening"; // 5시~15시 아침, 그 외 저녁
   }
 
+  var DEFAULTS = JSON.parse(JSON.stringify(window.PRAYERS));
+  var current = "morning";
+
+  function loadCustom() {
+    var raw = store.get("customPrayers");
+    if (!raw) return;
+    try {
+      var c = JSON.parse(raw);
+      ["morning", "evening"].forEach(function (m) {
+        if (c[m] && c[m].items && c[m].items.length) {
+          window.PRAYERS[m].items = c[m].items;
+          if (typeof c[m].closing === "string") window.PRAYERS[m].closing = c[m].closing;
+        }
+      });
+    } catch (e) {}
+  }
+  function saveCustom() {
+    var out = {};
+    ["morning", "evening"].forEach(function (m) {
+      out[m] = { items: window.PRAYERS[m].items, closing: window.PRAYERS[m].closing };
+    });
+    store.set("customPrayers", JSON.stringify(out));
+  }
+  function toText(items) {
+    return items.map(function (it) { return it.title + "\n" + it.body.join("\n"); }).join("\n\n");
+  }
+  function parseText(t) {
+    return t.split(/\n\s*\n/).map(function (blk) {
+      var lines = blk.split("\n").map(function (l) { return l.trim(); }).filter(Boolean);
+      return lines.length ? { title: lines[0], body: lines.slice(1) } : null;
+    }).filter(Boolean);
+  }
+
   function render(mode) {
+    current = mode;
+    $("editor").hidden = true;
     var p = window.PRAYERS[mode];
     document.body.className = mode;
     $("icon").textContent = mode === "morning" ? "☀️" : "🌙";
@@ -185,6 +246,30 @@ window.PRAYERS = {
     b.addEventListener("click", function () { render(b.dataset.mode); });
   });
 
+  $("edit").addEventListener("click", function () {
+    var p = window.PRAYERS[current];
+    $("ed-label").textContent = p.label + " 내용";
+    $("ed-body").value = toText(p.items);
+    $("ed-closing").value = p.closing;
+    $("editor").hidden = false;
+    $("ed-body").focus();
+  });
+  $("ed-cancel").addEventListener("click", function () { $("editor").hidden = true; });
+  $("ed-reset").addEventListener("click", function () {
+    var d = DEFAULTS[current];
+    $("ed-body").value = toText(d.items);
+    $("ed-closing").value = d.closing;
+  });
+  $("editor").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var items = parseText($("ed-body").value);
+    if (!items.length) { $("ed-body").focus(); return; }
+    window.PRAYERS[current].items = items;
+    window.PRAYERS[current].closing = $("ed-closing").value.trim();
+    saveCustom();
+    render(current);
+  });
+
   var fs = parseInt(store.get("fs"), 10) || 19;
   function setFs(n) {
     fs = Math.max(14, Math.min(34, n));
@@ -195,7 +280,9 @@ window.PRAYERS = {
   $("larger").addEventListener("click", function () { setFs(fs + 2); });
   setFs(fs);
 
+  loadCustom();
   render(defaultMode());
+  if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").catch(function () {}); }
 })();
 
 </script>

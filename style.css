@@ -19,3 +19,14 @@ section{background:var(--card);border-radius:16px;padding:16px 20px;margin-botto
 section h2{margin:0 0 6px;font-size:.95em;color:var(--accent)}
 section p{margin:.2em 0}
 .closing{text-align:center;color:var(--accent);margin-top:28px}
+
+#editor{background:var(--card);border-radius:16px;padding:16px 20px;margin-bottom:16px;font-size:.85em}
+#editor[hidden]{display:none}
+#editor label{display:block;margin:10px 0 4px;color:var(--accent)}
+#editor textarea,#editor input{width:100%;font:inherit;font-size:1em;line-height:1.7;padding:10px;border-radius:10px;border:1px solid var(--muted);background:transparent;color:var(--fg)}
+#editor .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#editor .row button{font:inherit;padding:8px 14px;border-radius:10px;border:1px solid var(--muted);background:transparent;color:var(--fg);cursor:pointer}
+#editor .row .primary{background:var(--accent);border-color:var(--accent);color:#fff}
+body.evening #editor .row .primary{color:#1c2438}
+.hint{color:var(--muted);margin:4px 0;font-size:.85em}
+.tools #edit{margin-right:auto}
