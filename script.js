@@ -73,7 +73,7 @@
     ["morning", "evening", "sunday"].forEach(function (m) {
       $("tab-" + m).setAttribute("aria-selected", m === mode ? "true" : "false");
     });
-    document.querySelector('meta[name="theme-color"]').content = mode === "morning" ? "#fff8ec" : "#1c2438";
+    document.querySelector('meta[name="theme-color"]').content = mode === "morning" ? "#f5f5f7" : "#000000";
     window.scrollTo(0, 0);
   }
 
