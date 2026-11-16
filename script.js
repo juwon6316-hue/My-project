@@ -44,12 +44,12 @@
     }).filter(Boolean);
   }
 
-  function render(mode) {
+  function render(mode, keep) {
     current = mode;
     $("editor").hidden = true;
     $("sermon").hidden = mode !== "sunday";
     $("edit").hidden = mode === "sunday";
-    if (mode === "sunday") loadWeek();
+    if (mode === "sunday" && !keep) loadWeek();
     var p = window.PRAYERS[mode];
     document.body.className = mode === "evening" ? "evening" : "morning";
     $("icon").textContent = mode === "morning" ? "☀️" : mode === "evening" ? "🌙" : "🙏";
@@ -119,8 +119,57 @@
     window.PRAYERS.sunday.closing = w ? w.closing || "" : "";
     $("sm-status").textContent = w && w.items && w.items.length ? "이번 주에 만든 기도문이에요." : "";
     $("sm-settings").open = !store.get("geminiKey");
+    renderHist();
     $("sm-key").value = "";
   }
+  // ---- 지난 묵상 기도문 (히스토리) ----
+  function getHist() {
+    try { var a = JSON.parse(store.get("sermonHistory") || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+  }
+  function setHist(a) { store.set("sermonHistory", JSON.stringify(a.slice(0, 100))); }
+  function fmtDate(id) {
+    var d = new Date(id);
+    return d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate();
+  }
+  function renderHist() {
+    var a = getHist(), ul = $("sm-list");
+    ul.textContent = "";
+    $("sm-hist-sum").textContent = "지난 묵상 기도문 (" + a.length + ")";
+    $("sm-hist-empty").hidden = a.length > 0;
+    a.forEach(function (e) {
+      var li = document.createElement("li");
+      var open = document.createElement("button");
+      open.type = "button"; open.className = "open";
+      var t = document.createElement("span");
+      t.textContent = e.title || (e.notes || "").split("\n")[0].slice(0, 30) || "묵상 기도문";
+      var sm = document.createElement("small");
+      sm.textContent = fmtDate(e.id);
+      open.appendChild(t); open.appendChild(sm);
+      open.addEventListener("click", function () {
+        $("sm-title").value = e.title || "";
+        $("sm-notes").value = e.notes || "";
+        window.PRAYERS.sunday.items = e.items; window.PRAYERS.sunday.closing = e.closing || "";
+        render("sunday", true);
+        $("sm-status").textContent = fmtDate(e.id) + "에 만든 기도문이에요.";
+        $("prayer").scrollIntoView({ behavior: "smooth" });
+      });
+      var del = document.createElement("button");
+      del.type = "button"; del.className = "del"; del.textContent = "삭제";
+      del.addEventListener("click", function () {
+        if (del.dataset.sure !== "1") { del.dataset.sure = "1"; del.textContent = "정말?"; setTimeout(function () { del.dataset.sure = ""; del.textContent = "삭제"; }, 3000); return; }
+        setHist(getHist().filter(function (x) { return x.id !== e.id; }));
+        renderHist();
+      });
+      li.appendChild(open); li.appendChild(del); ul.appendChild(li);
+    });
+  }
+  (function seed() {
+    if (store.get("sermonHistory") !== null) return;
+    var raw = store.get(weekKey()), w = null;
+    try { w = raw ? JSON.parse(raw) : null; } catch (e) {}
+    if (w && w.items && w.items.length) setHist([{ id: Date.now(), title: w.title, notes: w.notes, items: w.items, closing: w.closing }]);
+  })();
+
   $("sm-keysave").addEventListener("click", function () {
     var k = $("sm-key").value.trim();
     if (!k) return;
@@ -133,7 +182,7 @@
   });
   $("sm-clear").addEventListener("click", function () {
     try { localStorage.removeItem(weekKey()); } catch (e) {}
-    loadWeek(); render("sunday");
+    loadWeek(); render("sunday", true);
   });
   var PROMPT = "당신은 교회 예배 후 묵상을 돕는 기도 동반자입니다. 아래 설교 필기를 바탕으로 한국어 묵상 기도문을 써 주세요.\n" +
     "규칙:\n- 필기에 없는 성경 구절이나 사실을 지어내지 말고, 필기의 내용과 본문에 충실하세요.\n" +
@@ -175,8 +224,10 @@
       var items = parseText(text);
       if (!items.length) throw new Error("기도문을 받지 못했어요. 다시 시도해 주세요.");
       store.set(weekKey(), JSON.stringify({ title: title, notes: notes, items: items, closing: closing }));
+      var hist = getHist(); hist.unshift({ id: Date.now(), title: title, notes: notes, items: items, closing: closing });
+      setHist(hist);
       window.PRAYERS.sunday.items = items; window.PRAYERS.sunday.closing = closing;
-      render("sunday");
+      render("sunday", true); renderHist();
       $("sm-status").textContent = "기도문을 만들었어요. 아래에서 읽어 보세요.";
     }).catch(function (err) {
       st.textContent = "만들지 못했어요: " + (err && err.message ? err.message : "네트워크를 확인해 주세요.");
